@@ -1,13 +1,3 @@
-/**
- * Uses a p channel mosfet for high level switching
- * requires a NPN transistor with 10k Ohm resistor in front of NPN to reduce the 3v out of the MC to 1.6V
- * and 10k Ohm as well after NPN to VCC (source 10V)
- * PWM signal from MC ground with 10k Ohm resistor
- * alternative code for relays is commented out
- * relays are accessed through port expander
- *
- */
-
 #include <Arduino.h>
 
 /*
