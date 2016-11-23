@@ -3,3 +3,4 @@
 .gcc-flags.json
 src/Constants.h
 .piolibdeps
+platformio.ini
