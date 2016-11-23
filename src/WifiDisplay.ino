@@ -29,7 +29,7 @@
 #include <Wire.h>
 #include <pcf8574a.h>
 //#include <LiquidCrystal_I2C.h>
-#include <RH_ASK.h>
+//#include <RH_ASK.h>
 #include <BME280.h>
 #include <Adafruit_Sensor.h>
 #include <Constants.h>
