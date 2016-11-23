@@ -1,5 +1,5 @@
-# VentilationTimerClock
+# WifiDisplay
 
-A simple timer clock for a home ventilation system. Project files are for platform.io.
+A simple Wifi enabled thermometer based on ESP8266 - WeMos D1 Mini.
 
-It is based on ESP8266 using DHT22 and P channel mosfet. Time is synced by NTP.
+Still in development. 
