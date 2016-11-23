@@ -30,7 +30,7 @@
 #include <pcf8574a.h>
 //#include <LiquidCrystal_I2C.h>
 //#include <RH_ASK.h>
-#include <BME280.h>
+#include <BME280I2C.h>
 #include <Adafruit_Sensor.h>
 #include <Constants.h>
 #include <Wire.h>
@@ -41,7 +41,7 @@
 //pcf8574a mcp(0x38); //instance
 
 //temparure sensor
-BME280 bme;                   // Default : forced mode, standby time = 1000 ms
+BME280I2C bme;                   // Default : forced mode, standby time = 1000 ms
 
 /**
  * @brief mDNS and OTA Constants
@@ -583,9 +583,13 @@ void loop() {
                         pulTime[ulMeasCount%ulNoMeasValues] = now();
                 }
                 if (enableBme) {
-                        pfHum[ulMeasCount%ulNoMeasValues] = bme.ReadHumidity();
-                        pfTemp[ulMeasCount%ulNoMeasValues] = bme.ReadTemperature(true) + BMETEMPOFFSET;
-                        pfPres[ulMeasCount%ulNoMeasValues] = bme.ReadPressure(1);
+                        float temp(NAN), hum(NAN), pres(NAN);
+                        bool metric = true;
+                        uint8_t pressureUnit(1);                    // unit: B000 = Pa, B001 = hPa, B010 = Hg, B011 = atm, B100 = bar, B101 = torr, B110 = N/m^2, B111 = psi
+                        bme.read(pres, temp, hum, metric, pressureUnit);
+                        pfHum[ulMeasCount%ulNoMeasValues] = hum;
+                        pfTemp[ulMeasCount%ulNoMeasValues] = temp + BMETEMPOFFSET;
+                        pfPres[ulMeasCount%ulNoMeasValues] = pres;
                         pulTime[ulMeasCount%ulNoMeasValues] = now();
 
                 }
@@ -643,9 +647,12 @@ void writeDisplay() {
                 uint8_t pressureUnit(1); // unit: B000 = Pa, B001 = hPa, B010 = Hg, B011 = atm, B100 = bar, B101 = torr, B110 = N/m^2, B111 = psi
                 //bme.ReadData(pressure, temperature, humidity, metric, pressureUnit);          // Parameters: (float& pressure, float& temp, float& humidity, bool hPa = true, bool celsius = false)
                 // Alternatives to ReadData():
-                temperature = bme.ReadTemperature(metric) + BMETEMPOFFSET;
-                pressure = bme.ReadPressure(1);
-                humidity = bme.ReadHumidity();
+                float temp(NAN), hum(NAN), pres(NAN);
+                // unit: B000 = Pa, B001 = hPa, B010 = Hg, B011 = atm, B100 = bar, B101 = torr, B110 = N/m^2, B111 = psi
+                bme.read(pres, temp, hum, metric, pressureUnit);
+                temperature = temp + BMETEMPOFFSET;
+                pressure = pres;
+                humidity = hum;
                 Serial << ("BME280 - Luftfeuchte: ") << humidity << " Temperatur: " << temperature << " C" << " Pressure: " << pressure <<endl;
         }
 
@@ -689,7 +696,7 @@ void handleFanAuto() {
 }
 
 void handleTemperature() {
-        float value = bme.ReadTemperature(true) + BMETEMPOFFSET;
+        float value = bme.temp(true) + BMETEMPOFFSET;
         if (isnan(value)) {
                 value = dht.readTemperature() + DHTTEMPOFFSET; //Temperatur auslesen
         }
@@ -699,7 +706,7 @@ void handleTemperature() {
 }
 
 void handleHumidity() {
-        float value = bme.ReadHumidity();
+        float value = bme.hum();
         if (isnan(value)) {
                 value = dht.readHumidity(); //Temperatur auslesen
         }
@@ -709,7 +716,7 @@ void handleHumidity() {
 }
 
 void handlePressure() {
-        float value = bme.ReadPressure(1);
+        float value = bme.press(1);
         char str_temp[3];
         dtostrf(value, 4, 0, str_temp);
         server.send ( 200, "text/html", str_temp );
@@ -758,9 +765,11 @@ void handleRoot() {
                 uint8_t pressureUnit(1); // unit: B000 = Pa, B001 = hPa, B010 = Hg, B011 = atm, B100 = bar, B101 = torr, B110 = N/m^2, B111 = psi
                 //bme.ReadData(presssure, temperature, humidity, metric, pressureUnit);          // Parameters: (float& pressure, float& temp, float& humidity, bool hPa = true, bool celsius = false)
                 // Alternatives to ReadData():
-                temperature = bme.ReadTemperature(true) + BMETEMPOFFSET;
-                pressure = bme.ReadPressure(1);
-                humidity = bme.ReadHumidity();
+                float temp(NAN), hum(NAN), pres(NAN);
+                bme.read(pres, temp, hum, metric, pressureUnit);
+                temperature = temp + BMETEMPOFFSET;
+                pressure = pres;
+                humidity = hum;
                 Serial << ("Luftfeuchte: ") << humidity << " Temperatur: " << temperature << " C" << " Pressure: " << pressure <<endl;
 
                 answer += "<p>";
