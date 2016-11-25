@@ -123,6 +123,7 @@ int readingDown;           // the current reading from the input pin
 int previousDown = LOW;    // the previous reading from the input pin
 int readingBtnDisplay;
 int previousBtnDisplay = LOW;
+bool displayOn = true;
 
 bool enableDht = ENABLEDHT;
 bool enableBme = ENABLEBME;
@@ -255,6 +256,7 @@ void setup() {
         //pinMode(LEDPIN, OUTPUT);
         pinMode(DHTPIN, INPUT);
         pinMode(BTNDISPLAYPIN, INPUT);
+        attachInterrupt(BTNDISPLAYPIN, wakeUp, FALLING);
         //pinMode(BTNUP, INPUT);
         //pinMode(BTNDOWN, INPUT);
         //pinMode(BTNAUTO, INPUT);
@@ -396,7 +398,7 @@ void setup() {
 
         // Start OTA server.
         ArduinoOTA.setHostname((const char *)hostname.c_str());
-        ArduinoOTA.setPassword((const char *) OTAPASSWORD);
+        //ArduinoOTA.setPassword((const char *) OTAPASSWORD); //password somehow not working for wemos d1 mini but esp8266
         ArduinoOTA.begin();
 
         // Start the server
@@ -490,16 +492,23 @@ void loop() {
         //         } { Serial.println("no data received"); }
         // }
 
-        readingBtnDisplay = digitalRead(BTNDISPLAYPIN);
-        if (readingBtnDisplay == LOW && previousBtnDisplay == HIGH) {
+        // readingBtnDisplay = digitalRead(BTNDISPLAYPIN);
+        // if (readingBtnDisplay == LOW && previousBtnDisplay == HIGH) {
+        //         Alarm.timerOnce(15, calledOnce);
+        //         writeDisplay();
+        //         //displayAlarmSet = true;
+        //         Serial << "BTNDISPLAYPIN pressed - low" << endl;
+        //         //displayTime = millis();
+        //         //displayOn = true;
+        // }
+        // previousBtnDisplay = readingBtnDisplay;
+
+        if (displayOn) {
+                displayOn = false;
+                Serial << "displayOn by intterrupt" << endl;
                 Alarm.timerOnce(15, calledOnce);
                 writeDisplay();
-                //displayAlarmSet = true;
-                Serial << "BTNDISPLAYPIN pressed - low" << endl;
-                //displayTime = millis();
-                //displayOn = true;
         }
-        previousBtnDisplay = readingBtnDisplay;
 
         // read the auto button
         //readingAuto = mcp.gpioDigitalRead(I2CBTNAUTO);
@@ -604,6 +613,24 @@ void loop() {
 
         Alarm.delay(200);
         yield();
+
+        //will put it to deep sleep, neets 470Ohm Resistor between D0 and Resistor
+        //after deepsleep device will boot
+        //ESP.deepSleep(5000000, WAKE_RF_DEFAULT);
+        // Time to sleep (in seconds):
+        //const int sleepTimeS = 30;
+        // deepSleep time is defined in microseconds. Multiply
+        // seconds by 1e6
+        //Serial << "going to deep sleep" << endl;
+        //ESP.deepSleep(sleepTimeS * 1000000, WAKE_RF_DEFAULT);
+        //Serial << " woken up from deep sleep" << endl;
+        //delay(100);
+
+}
+
+void wakeUp() {
+        Serial << "wakeUp called by interrupt" << endl;
+        displayOn = true;
 }
 
 void calledOnce() {
@@ -816,7 +843,8 @@ void handleRoot() {
                 answer +="</p>";
         }
 
-        answer += "<A HREF=\"javascript:history.go(0)\">Click to refresh the page</A>";
+        answer += "<p><A HREF=\"javascript:history.go(0)\">Click to refresh the page</A></p>";
+        answer += "<p><A HREF=\"/table\">Table view</A></p>";
         answer += "</body></html>";
         server.sendHeader("Cache-Control", "no-cache");
         server.send ( 200, "text/html", answer );
