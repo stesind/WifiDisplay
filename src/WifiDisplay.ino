@@ -313,13 +313,13 @@ void setup() {
         //Serial.println(WiFi.hostname());
 
 
-        // // Initialize file system.
-        // if (!SPIFFS.begin())
-        // {
-        //         Serial.println("Failed to mount file system");
-        //         return;
-        // }
-        //
+        // Initialize file system.
+        if (!SPIFFS.begin())
+        {
+                Serial.println("Failed to mount file system");
+                return;
+        }
+
         // // Load wifi connection information.
         // if (!loadConfig(&station_ssid, &station_psk))
         // {
@@ -408,6 +408,8 @@ void setup() {
         server.on ( "/pressure", handlePressure );
         server.on ( "/time", handleTime );
         server.on ( "/table", handleTable );
+        server.on ( "/file", handleFile );
+        server.on ( "/deleteFile", deleteFile );
         server.on ("/Fan=Up", handleFanUp);
         server.on ("/Fan=Down", handleFanDown);
         server.on ("/Fan=Auto", handleFanAuto);
@@ -592,6 +594,31 @@ void loop() {
                         pulTime[ulMeasCount%ulNoMeasValues] = now();
 
                 }
+                //write clima data to fs
+                File f = SPIFFS.open("/clima-data.txt", "a");
+                if (!f) {
+                        Serial.println("file open failed");
+                } else {
+                        char buffer[24];
+                        sprintf(buffer, "%02d:%02d:%02d %02d.%02d.%04d", \
+                                hour(), \
+                                minute(), \
+                                second(), \
+                                day(), \
+                                month(), \
+                                year());
+                        String sLine = buffer;
+                        //sAnswer += epoch_to_string(pulTime[ulIndex]).c_str();
+                        sLine += " , ";
+                        sLine += pfTemp[ulMeasCount%ulNoMeasValues];
+                        sLine += " , ";
+                        sLine += pfHum[ulMeasCount%ulNoMeasValues];
+                        sLine += " , ";
+                        sLine += pfPres[ulMeasCount%ulNoMeasValues];
+                        f.println(sLine);
+                        f.close();
+                }
+
                 if (ulMeasCount >= ulNoMeasValues) {
                         ulMeasCount = 0;
                 } else {
@@ -611,7 +638,7 @@ void loop() {
 
         //readEnvironment();
 
-        Alarm.delay(200);
+        Alarm.delay(50);
         yield();
 
         //will put it to deep sleep, neets 470Ohm Resistor between D0 and Resistor
@@ -845,6 +872,7 @@ void handleRoot() {
 
         answer += "<p><A HREF=\"javascript:history.go(0)\">Click to refresh the page</A></p>";
         answer += "<p><A HREF=\"/table\">Table view</A></p>";
+        answer += "<p><A HREF=\"/file\">File view</A></p>";
         answer += "</body></html>";
         server.sendHeader("Cache-Control", "no-cache");
         server.send ( 200, "text/html", answer );
@@ -935,30 +963,6 @@ long int getNtpTime() {
                         return epoch;
                 }
         }
-}
-// crashes this program but does work otherwhere
-void LED_Blink(int LEDPin, long interval = 1000, long duration = 5000) {
-        int ledState = LOW;
-        unsigned long previousMillis = 0;
-        unsigned long startMillis = millis();
-        unsigned long currentMillis = 0;
-        while   ((millis() - startMillis) <= duration) {
-                currentMillis = millis();
-                if (currentMillis - previousMillis >= interval) {
-                        // save the last time you blinked the LED
-                        previousMillis = currentMillis;
-                        // if the LED is off turn it on and vice-versa:
-                        if (ledState == LOW) {
-                                ledState = HIGH;
-                        } else {
-                                ledState = LOW;
-                        }
-                        // set the LED with the ledState of the variable:
-                        //digitalWrite(LEDPIN, ledState);
-                }
-        }
-        //delay(10);
-        yield();
 }
 
 void handleTable ()
@@ -1052,4 +1056,65 @@ void handleTable ()
                 //pclient->write(sTable.c_str(),sTable.length());
         }
 
+}
+void handleFile () {
+        File f = SPIFFS.open("/clima-data.txt", "r");
+        if (!f)  {
+                String sAnswer = "No data available yet.";
+                server.send ( 200, "text/plain", sAnswer );
+        }
+        else
+        {
+                String sAnswer = \
+                        "<html>\
+          <head>\
+            <title>";
+                sAnswer += NAME;
+                sAnswer += "</title>\
+            <style>\
+              body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
+            </style>\
+          </head>\
+          <body>\
+          <h1><a href=\"/\">";
+                sAnswer += NAME;
+                sAnswer += "</a></h1>";
+                //sAnswer += "<table>";
+                sAnswer += "<table style=\"width:100%\"><tr><th>Time</th><th>Temperature</th><th>Humidity</th><th>Pressure</th></tr>";
+                sAnswer += "<style>table, th, td {border: 2px solid black; border-collapse: collapse;} th, td {padding: 5px;} th {text-align: left;}</style>";
+
+                while (f.available()) {
+                        //Lets read line by line from the file
+                        sAnswer += "<tr><td>";
+                        String item = f.readStringUntil(','); //time
+                        sAnswer += item;
+                        sAnswer += "</td><td>";
+                        item = f.readStringUntil(','); //temp
+                        sAnswer += item;
+                        sAnswer += "</td><td>";
+                        item = f.readStringUntil(',');            //hum
+                        sAnswer += item;
+                        sAnswer += "</td><td>";
+                        item = f.readStringUntil('\n');            //pres
+                        sAnswer += item;
+                        sAnswer += "</td></tr>";
+                }
+
+                // remaining chunk
+                sAnswer+="</table>";
+                sAnswer += "<p><A HREF=\"/table\">Table view</A></p>";
+                sAnswer += "<p><A HREF=\"/file\">Delete file and all data</A></p>";
+                sAnswer += "</body></html>";
+                server.sendHeader("Cache-Control", "no-cache");
+                server.send ( 200, "text/html", sAnswer );
+                //pclient->print(sTable);
+                //pclient->write(sTable.c_str(),sTable.length());
+                f.close();
+        }
+
+
+
+}
+void deleteFile() {
+        SPIFFS.remove("/clima-data.txt");
 }
