@@ -31,7 +31,7 @@
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
 //LiquidCrystal_I2C lcd(0x27, 20, 4);
 //pcf8574a mcp(0x38); //instance
-#define ONE_WIRE_BUS 0
+#define ONE_WIRE_BUS D5
 
 // Setup a oneWire instance to communicate with any OneWire devices
 // (not just Maxim/Dallas temperature ICs)
