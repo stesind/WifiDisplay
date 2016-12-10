@@ -25,11 +25,20 @@
 #include <Constants.h>
 #include <Wire.h>
 #include <SSD1306.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
 //LiquidCrystal_I2C lcd(0x27, 20, 4);
 //pcf8574a mcp(0x38); //instance
+#define ONE_WIRE_BUS 0
 
+// Setup a oneWire instance to communicate with any OneWire devices
+// (not just Maxim/Dallas temperature ICs)
+OneWire oneWire(ONE_WIRE_BUS);
+
+// Pass our oneWire reference to Dallas Temperature.
+DallasTemperature sensors(&oneWire);
 //temparure sensor
 BME280I2C bme;                   // Default : forced mode, standby time = 1000 ms
 
@@ -127,6 +136,7 @@ bool displayOn = true;
 
 bool enableDht = ENABLEDHT;
 bool enableBme = ENABLEBME;
+bool enableDS18B20 = ENABLEDS18B20;
 
 int curFanLevel = 0;
 int timerMode = 0;        // 0 default, 1 manual, 2 alarm mode
@@ -438,6 +448,11 @@ void setup() {
                 Serial << "enabling BME" << endl;
                 bme.begin();
         }
+        //DS18B20
+        // Start up the library
+        if (enableDS18B20) {
+                    sensors.begin();
+        }
 
         //setSyncProvider((time_t)getNtpTime());
         Serial << "get NTP time" << endl;
@@ -594,6 +609,13 @@ void loop() {
                         pulTime[ulMeasCount%ulNoMeasValues] = now();
 
                 }
+                if (enableDS18B20) {
+                  sensors.requestTemperatures();
+                  pfHum[ulMeasCount%ulNoMeasValues] = 0.0;
+                  pfTemp[ulMeasCount%ulNoMeasValues] = sensors.getTempCByIndex(0); //0 is the first device on the bus
+                  pfPres[ulMeasCount%ulNoMeasValues] = 0.0;
+                  pulTime[ulMeasCount%ulNoMeasValues] = now();
+                }
                 //write clima data to fs
                 File f = SPIFFS.open("/clima-data.txt", "a");
                 if (!f) {
@@ -698,6 +720,12 @@ void writeDisplay() {
                 pressure = pres;
                 humidity = hum;
                 Serial << ("BME280 - Luftfeuchte: ") << humidity << " Temperatur: " << temperature << " C" << " Pressure: " << pressure <<endl;
+        }
+        if (enableDS18B20) {
+          sensors.requestTemperatures();
+          temperature = sensors.getTempCByIndex(0); //0 is the first device on the bus
+          pressure = 0.0;
+          humidity = 0.0;
         }
 
         display.setTextAlignment(TEXT_ALIGN_LEFT);
@@ -867,6 +895,22 @@ void handleRoot() {
                 dtostrf(humidity, 2, 0, str_temp);         // da %f nicht im arduino implementiert is
                 sprintf(buffer, " Hum: %s%%", str_temp);
                 answer += buffer;
+                answer +="</p>";
+        }
+        if (enableDS18B20) {
+                ////dht22 sensor
+                Serial.println("Reading DS18820");
+                sensors.requestTemperatures(); // Send the command to get temperatures
+                float temperature = sensors.getTempCByIndex(0);
+
+                Serial << " Temperatur: " << temperature << " C" <<endl;
+
+                answer += "<p>";
+                char str_temp[3];
+                dtostrf(temperature, 2, 1, str_temp); // da %f nicht im arduino implementiert is
+                sprintf(buffer, "DS18820: Temp: %sC", str_temp);
+                answer += buffer;
+
                 answer +="</p>";
         }
 
