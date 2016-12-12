@@ -419,6 +419,7 @@ void setup() {
         server.on ( "/time", handleTime );
         server.on ( "/table", handleTable );
         server.on ( "/file", handleFile );
+        server.on ( "/downloadFile", downloadFile );
         server.on ( "/deleteFile", deleteFile );
         server.on ("/Fan=Up", handleFanUp);
         server.on ("/Fan=Down", handleFanDown);
@@ -451,7 +452,7 @@ void setup() {
         //DS18B20
         // Start up the library
         if (enableDS18B20) {
-                    sensors.begin();
+                sensors.begin();
         }
 
         //setSyncProvider((time_t)getNtpTime());
@@ -610,11 +611,11 @@ void loop() {
 
                 }
                 if (enableDS18B20) {
-                  sensors.requestTemperatures();
-                  pfHum[ulMeasCount%ulNoMeasValues] = 0.0;
-                  pfTemp[ulMeasCount%ulNoMeasValues] = sensors.getTempCByIndex(0); //0 is the first device on the bus
-                  pfPres[ulMeasCount%ulNoMeasValues] = 0.0;
-                  pulTime[ulMeasCount%ulNoMeasValues] = now();
+                        sensors.requestTemperatures();
+                        pfHum[ulMeasCount%ulNoMeasValues] = 0.0;
+                        pfTemp[ulMeasCount%ulNoMeasValues] = sensors.getTempCByIndex(0); //0 is the first device on the bus
+                        pfPres[ulMeasCount%ulNoMeasValues] = 0.0;
+                        pulTime[ulMeasCount%ulNoMeasValues] = now();
                 }
                 //write clima data to fs
                 File f = SPIFFS.open("/clima-data.txt", "a");
@@ -722,10 +723,10 @@ void writeDisplay() {
                 Serial << ("BME280 - Luftfeuchte: ") << humidity << " Temperatur: " << temperature << " C" << " Pressure: " << pressure <<endl;
         }
         if (enableDS18B20) {
-          sensors.requestTemperatures();
-          temperature = sensors.getTempCByIndex(0); //0 is the first device on the bus
-          pressure = 0.0;
-          humidity = 0.0;
+                sensors.requestTemperatures();
+                temperature = sensors.getTempCByIndex(0); //0 is the first device on the bus
+                pressure = 0.0;
+                humidity = 0.0;
         }
 
         display.setTextAlignment(TEXT_ALIGN_LEFT);
@@ -917,6 +918,7 @@ void handleRoot() {
         answer += "<p><A HREF=\"javascript:history.go(0)\">Click to refresh the page</A></p>";
         answer += "<p><A HREF=\"/table\">Table view</A></p>";
         answer += "<p><A HREF=\"/file\">File view</A></p>";
+        answer += "<p><A HREF=\"/downloadFile\">File download</A></p>";
         answer += "</body></html>";
         server.sendHeader("Cache-Control", "no-cache");
         server.send ( 200, "text/html", answer );
@@ -1093,6 +1095,8 @@ void handleTable ()
 
                 // remaining chunk
                 sAnswer+="</table>";
+                sAnswer += "<p><A HREF=\"/file\">File view</A></p>";
+                sAnswer += "<p><A HREF=\"/downloadFile\">File download</A></p>";
                 sAnswer += "</body></html>";
                 server.sendHeader("Cache-Control", "no-cache");
                 server.send ( 200, "text/html", sAnswer );
@@ -1101,6 +1105,20 @@ void handleTable ()
         }
 
 }
+void downloadFile () {
+        File file = SPIFFS.open("/clima-data.txt", "r");
+        if (!file)  {
+                String sAnswer = "No data available yet.";
+                server.send ( 200, "text/plain", sAnswer );
+        }
+        else
+        {
+
+                server.streamFile(file, "text/plain");
+                file.close();
+        }
+}
+
 void handleFile () {
         File f = SPIFFS.open("/clima-data.txt", "r");
         if (!f)  {
@@ -1111,16 +1129,16 @@ void handleFile () {
         {
                 String sAnswer = \
                         "<html>\
-          <head>\
-            <title>";
+                  <head>\
+                    <title>"                                                           ;
                 sAnswer += NAME;
                 sAnswer += "</title>\
-            <style>\
-              body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
-            </style>\
-          </head>\
-          <body>\
-          <h1><a href=\"/\">";
+                    <style>\
+                      body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
+                    </style>\
+                  </head>\
+                  <body>\
+                  <h1><a href=\"/\">";
                 sAnswer += NAME;
                 sAnswer += "</a></h1>";
                 //sAnswer += "<table>";
@@ -1130,16 +1148,16 @@ void handleFile () {
                 while (f.available()) {
                         //Lets read line by line from the file
                         sAnswer += "<tr><td>";
-                        String item = f.readStringUntil(','); //time
+                        String item = f.readStringUntil(',');         //time
                         sAnswer += item;
                         sAnswer += "</td><td>";
-                        item = f.readStringUntil(','); //temp
+                        item = f.readStringUntil(',');         //temp
                         sAnswer += item;
                         sAnswer += "</td><td>";
-                        item = f.readStringUntil(',');            //hum
+                        item = f.readStringUntil(',');                    //hum
                         sAnswer += item;
                         sAnswer += "</td><td>";
-                        item = f.readStringUntil('\n');            //pres
+                        item = f.readStringUntil('\n');                    //pres
                         sAnswer += item;
                         sAnswer += "</td></tr>";
                 }
@@ -1148,6 +1166,7 @@ void handleFile () {
                 sAnswer+="</table>";
                 sAnswer += "<p><A HREF=\"/table\">Table view</A></p>";
                 sAnswer += "<p><A HREF=\"/file\">Delete file and all data</A></p>";
+                sAnswer += "<p><A HREF=\"/downloadFile\">File download</A></p>";
                 sAnswer += "</body></html>";
                 server.sendHeader("Cache-Control", "no-cache");
                 server.send ( 200, "text/html", sAnswer );
@@ -1155,8 +1174,6 @@ void handleFile () {
                 //pclient->write(sTable.c_str(),sTable.length());
                 f.close();
         }
-
-
 
 }
 void deleteFile() {
