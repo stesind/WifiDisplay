@@ -27,11 +27,13 @@
 #include <SSD1306.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <SparkFun_APDS9960.h>
 
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
 //LiquidCrystal_I2C lcd(0x27, 20, 4);
 //pcf8574a mcp(0x38); //instance
 #define ONE_WIRE_BUS D5
+
 
 // Setup a oneWire instance to communicate with any OneWire devices
 // (not just Maxim/Dallas temperature ICs)
@@ -42,6 +44,15 @@ DallasTemperature sensors(&oneWire);
 //temparure sensor
 BME280I2C bme;                   // Default : forced mode, standby time = 1000 ms
 
+// Pins on wemos D1 mini
+#define APDS9960_INT    D7  //AKA GPIO12 -- Interupt pin
+#define APDS9960_SDA    D3  //AKA GPIO0
+#define APDS9960_SCL    D1  //AKA GPIO5
+// Constants
+
+// Global Variables
+SparkFun_APDS9960 apds = SparkFun_APDS9960();
+volatile bool isr_flag = 0;
 /**
  * @brief mDNS and OTA Constants
  * @{
@@ -278,6 +289,12 @@ void setup() {
 
         // set the pins for I2C
         Wire.begin();
+
+        //Start I2C with pins defined above
+        //Wire.begin(APDS9960_SDA,APDS9960_SCL);
+
+        // Set interrupt pin as input
+        pinMode(APDS9960_INT, INPUT);
         // mcp.begin();
         // mcp.gpioPinMode(RELAY0,OUTPUT);
         // mcp.gpioPinMode(RELAY1,OUTPUT);
@@ -295,6 +312,22 @@ void setup() {
 
         Serial.begin(115200);
 
+        // Initialize interrupt service routine
+        attachInterrupt(APDS9960_INT, interruptRoutine, FALLING);
+
+        // Initialize APDS-9960 (configure I2C and initial values)
+        if ( apds.init() ) {
+                Serial.println(F("APDS-9960 initialization complete"));
+        } else {
+                Serial.println(F("Something went wrong during APDS-9960 init!"));
+        }
+
+        // Start running the APDS-9960 gesture sensor engine
+        if ( apds.enableGestureSensor(true) ) {
+                Serial.println(F("Gesture sensor is now running"));
+        } else {
+                Serial.println(F("Something went wrong during gesture sensor init!"));
+        }
 
         // Initialising the UI will init the display too.
         display.init();
@@ -498,6 +531,14 @@ void LED_SimpleBlink(int LEDPin, long interval = 60, long duration = 5) {
 }
 void loop() {
 
+        if( isr_flag == 1 ) {
+                detachInterrupt(0);
+                handleGesture();
+                isr_flag = 0;
+                attachInterrupt(0, interruptRoutine, FALLING);
+        }
+
+
         // {
         //         uint8_t buf[12];
         //         uint8_t buflen = sizeof(buf);
@@ -676,6 +717,38 @@ void loop() {
         //Serial << " woken up from deep sleep" << endl;
         //delay(100);
 
+}
+
+void interruptRoutine() {
+        isr_flag = 1;
+}
+
+void handleGesture() {
+        if ( apds.isGestureAvailable() ) {
+                switch ( apds.readGesture() ) {
+                case DIR_UP:
+                        Serial.println("UP");
+                        break;
+                case DIR_DOWN:
+                        Serial.println("DOWN");
+                        break;
+                case DIR_LEFT:
+                        Serial.println("LEFT");
+                        break;
+                case DIR_RIGHT:
+                        Serial.println("RIGHT");
+                        break;
+                case DIR_NEAR:
+                        Serial.println("NEAR");
+                        break;
+                case DIR_FAR:
+                        Serial.println("FAR");
+                        break;
+                default:
+                        Serial.println("NONE");
+                }
+                displayOn = true;
+        }
 }
 
 void wakeUp() {
@@ -1130,7 +1203,7 @@ void handleFile () {
                 String sAnswer = \
                         "<html>\
                   <head>\
-                    <title>"                                                           ;
+                    <title>";
                 sAnswer += NAME;
                 sAnswer += "</title>\
                     <style>\
