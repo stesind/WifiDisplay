@@ -46,7 +46,7 @@ BME280I2C bme;                   // Default : forced mode, standby time = 1000 m
 
 // Pins on wemos D1 mini
 #define APDS9960_INT    D7  //AKA GPIO12 -- Interupt pin
-#define APDS9960_SDA    D3  //AKA GPIO0
+#define APDS9960_SDA    D2  //AKA GPIO0
 #define APDS9960_SCL    D1  //AKA GPIO5
 // Constants
 
