@@ -143,7 +143,6 @@ int readingDown;           // the current reading from the input pin
 int previousDown = LOW;    // the previous reading from the input pin
 int readingBtnDisplay;
 int previousBtnDisplay = LOW;
-bool displayOn = true;
 
 bool enableDht = ENABLEDHT;
 bool enableBme = ENABLEBME;
@@ -158,8 +157,12 @@ String timerModes[] ={"default", "manual", "alarm mode", "offline", "push up"};
 #define TIMER_OFFLINE 3
 #define TIMER_PUSHUP 4
 
+#define DISPLAY_ON_TIME 15
+bool displayOn = true;
+bool turnDisplayOn = false;
 bool readEnvironment = true;
 bool turnDisplayOff = false;
+int menu = 0;
 //bool displayAlarmSet = false;
 // unsigned long displayTime;
 // bool displayOn = true;
@@ -507,7 +510,7 @@ void setup() {
         display.setFont(ArialMT_Plain_16);
         display.drawString(0, 32, "Ready..." );
         display.display();
-        Alarm.timerOnce(5, calledOnce);
+        Alarm.timerOnce(5, displayTimeOut);
 
         //ulNoMeasValues = 1000;
         // allocate ram for data storage
@@ -553,7 +556,7 @@ void loop() {
 
         // readingBtnDisplay = digitalRead(BTNDISPLAYPIN);
         // if (readingBtnDisplay == LOW && previousBtnDisplay == HIGH) {
-        //         Alarm.timerOnce(15, calledOnce);
+        //         Alarm.timerOnce(15, displayTimeOut);
         //         writeDisplay();
         //         //displayAlarmSet = true;
         //         Serial << "BTNDISPLAYPIN pressed - low" << endl;
@@ -562,66 +565,22 @@ void loop() {
         // }
         // previousBtnDisplay = readingBtnDisplay;
 
-        if (displayOn) {
-                displayOn = false;
+        if (turnDisplayOn) {
+                turnDisplayOn = false;
+                displayOn = true;
                 Serial << "displayOn by intterrupt" << endl;
-                Alarm.timerOnce(15, calledOnce);
-                writeDisplay();
+                Alarm.timerOnce(DISPLAY_ON_TIME, displayTimeOut);
         }
 
-        // read the auto button
-        //readingAuto = mcp.gpioDigitalRead(I2CBTNAUTO);
-        // readingAuto = digitalRead(BTNAUTO);
-        // //Serial << readingUp << endl;
-        // if (readingAuto == HIGH && previousAuto == LOW) {
-        //         if (timerMode != TIMER_DEFAULT)  {
-        //                 timerMode = TIMER_DEFAULT;
-        //                 Serial.println("Timer Default");
-        //                 LED_SimpleBlink(LEDPIN, 60, 5);
-        //         } else {
-        //                 timerMode = TIMER_OFFLINE;
-        //                 Serial.println("Timer Offline");
-        //                 //offline LED blink does not work somehow
-        //                 LED_SimpleBlink(LEDPIN, 600, 3);
-        //         }
-        // }
-        // previousAuto = readingAuto;
-        //
-        // //readingUp = mcp.gpioDigitalRead(I2CBTNUP);
-        // readingUp = digitalRead(BTNUP);
-        // //Serial << readingUp << endl;
-        // if (readingUp == HIGH && previousUp == LOW) {
-        //         //fanUp
-        //         timerMode = TIMER_MANUAL;
-        //         //digitalWrite(LEDMANPIN, HIGH);
-        //         //digitalWrite(LEDAUTOPIN, LOW);
-        //
-        //         Serial.println("Button Up click");
-        // }
-        // previousUp = readingUp;
-        //
-        // //readingDown = mcp.gpioDigitalRead(I2CBTNDOWN);
-        // readingDown = digitalRead(BTNDOWN);
-        // if (readingDown == HIGH && previousDown == LOW) {
-        //         //fanDown
-        //         timerMode = TIMER_MANUAL;
-        //         //digitalWrite(LEDMANPIN, HIGH);
-        //         //digitalWrite(LEDAUTOPIN, LOW);
-        //         Serial.println("Button Down click");
-        // }
-        // previousDown = readingDown;
-
-        // if (displayOn) {
-        //         if ((millis() - displayTime) > 10000) {
-        //                 display.displayOff();
-        //                 displayOn = false;
-        //                 Serial << "display off by millis" << endl;
-        //         }
-        // }
-        if (turnDisplayOff == true) {
-                display.displayOff();
+        if (turnDisplayOff) {
+                displayOn = false;
                 turnDisplayOff = false;
+                display.displayOff();
                 Serial << "display off by alarm" << endl;
+        }
+
+        if (displayOn) {
+                writeDisplay();
         }
 
         if (readEnvironment) {
@@ -747,17 +706,17 @@ void handleGesture() {
                 default:
                         Serial.println("NONE");
                 }
-                displayOn = true;
+                turnDisplayOn = true;
         }
 }
 
 void wakeUp() {
         Serial << "wakeUp called by interrupt" << endl;
-        displayOn = true;
+        turnDisplayOn = true;
 }
 
-void calledOnce() {
-        Serial << "calledOnce called by alarm" << endl;
+void displayTimeOut() {
+        Serial << "displayTimeOut called by alarm" << endl;
         turnDisplayOff = true;
         //displayAlarmSet = false;
 }
